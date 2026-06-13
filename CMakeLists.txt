@@ -9,9 +9,31 @@ if(NOT DEFINED DOBBY_SOURCE_DIR)
     set(DOBBY_SOURCE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/Dobby")
 endif()
 
+# Auto-download Dobby if not found
 if(NOT EXISTS "${DOBBY_SOURCE_DIR}/include/dobby.h")
-    message(FATAL_ERROR "Dobby not found at ${DOBBY_SOURCE_DIR}. "
-            "Run: git submodule update --init --recursive")
+    message(STATUS "Dobby not found at ${DOBBY_SOURCE_DIR}, downloading...")
+    file(DOWNLOAD
+        "https://github.com/jmpews/Dobby/archive/refs/heads/master.zip"
+        "${CMAKE_BINARY_DIR}/dobby.zip"
+        STATUS download_status
+        LOG download_log
+        SHOW_PROGRESS)
+    list(GET download_status 0 status_code)
+    if(NOT status_code EQUAL 0)
+        message(STATUS "Download log: ${download_log}")
+        message(FATAL_ERROR "Failed to download Dobby")
+    endif()
+    file(ARCHIVE_EXTRACT
+        INPUT "${CMAKE_BINARY_DIR}/dobby.zip"
+        DESTINATION "${CMAKE_BINARY_DIR}/dobby_extract")
+    file(GLOB dobby_dirs "${CMAKE_BINARY_DIR}/dobby_extract/Dobby-*")
+    list(LENGTH dobby_dirs num_dirs)
+    if(num_dirs EQUAL 1)
+        file(RENAME "${dobby_dirs}" "${DOBBY_SOURCE_DIR}")
+        message(STATUS "Dobby downloaded and extracted to ${DOBBY_SOURCE_DIR}")
+    else()
+        message(FATAL_ERROR "Failed to find extracted Dobby directory")
+    endif()
 endif()
 
 add_subdirectory(${DOBBY_SOURCE_DIR} dobby_build)

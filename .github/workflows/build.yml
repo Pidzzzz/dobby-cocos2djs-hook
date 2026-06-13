@@ -5,7 +5,7 @@ on:
     branches: [ "main", "master" ]
   pull_request:
     branches: [ "main", "master" ]
-  workflow_dispatch:  # Manual trigger
+  workflow_dispatch:
 
 jobs:
   build:
@@ -18,8 +18,6 @@ jobs:
     steps:
     - name: Checkout code
       uses: actions/checkout@v4
-      with:
-        submodules: 'recursive'
 
     - name: Setup Android NDK
       id: setup-ndk
@@ -31,7 +29,6 @@ jobs:
     - name: Build for ${{ matrix.arch }}
       run: |
         export ANDROID_NDK_HOME="${{ steps.setup-ndk.outputs.ndk-path }}"
-
         mkdir -p build/${{ matrix.arch }}
         cd build/${{ matrix.arch }}
 
