@@ -12,7 +12,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        arch: [arm64-v8a, armeabi-v7a]
+        arch: [arm64-v8a]
       fail-fast: false
 
     steps:
@@ -60,7 +60,6 @@ jobs:
       run: |
         mkdir -p release
         cp libcocos2djs_hook-arm64-v8a/libcocos2djs_hook.so release/libcocos2djs_hook-arm64-v8a.so
-        cp libcocos2djs_hook-armeabi-v7a/libcocos2djs_hook.so release/libcocos2djs_hook-armeabi-v7a.so
 
     - name: Create Release
       uses: softprops/action-gh-release@v2
