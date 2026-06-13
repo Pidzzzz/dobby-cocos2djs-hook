@@ -41,14 +41,20 @@ endif()
 
 add_subdirectory(${DOBBY_SOURCE_DIR} dobby_build)
 
+# Fix duplicate symbols in old Dobby's Logger::Shared() with modern compilers
+if(TARGET dobby)
+    set_target_properties(dobby PROPERTIES LINK_FLAGS "-Wl,--allow-multiple-definition")
+endif()
+
 add_library(cocos2djs_hook SHARED jni/hook.cpp)
 
 target_include_directories(cocos2djs_hook PRIVATE
     ${DOBBY_SOURCE_DIR}/include
 )
 
+# Link against dobby_static to avoid shared lib issues
 target_link_libraries(cocos2djs_hook
-    dobby
+    dobby_static
     log
     dl
 )
