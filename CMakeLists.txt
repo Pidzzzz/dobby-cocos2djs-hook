@@ -34,6 +34,82 @@ if(NOT EXISTS "${DOBBY_SOURCE_DIR}/include/dobby.h")
     else()
         message(FATAL_ERROR "Failed to find extracted Dobby directory")
     endif()
+
+    # ==========================================================
+    # Apply patches to fix Dobby (commit 5dfc854) build issues
+    # ==========================================================
+
+    # Fix 1: registers-arm.h - Cpu.h was renamed to CpuRegister.h
+    set(PATCH_FILE "${DOBBY_SOURCE_DIR}/source/core/arch/arm/registers-arm.h")
+    if(EXISTS "${PATCH_FILE}")
+        file(READ "${PATCH_FILE}" patch_content)
+        string(REPLACE "#include \"core/arch/Cpu.h\"" "#include \"core/arch/CpuRegister.h\"" patch_content "${patch_content}")
+        file(WRITE "${PATCH_FILE}" "${patch_content}")
+        message(STATUS "[PATCH] registers-arm.h: Cpu.h -> CpuRegister.h")
+    endif()
+
+    # Fix 2: Create missing Cpu.h stub that redirects to CpuRegister.h
+    set(PATCH_FILE "${DOBBY_SOURCE_DIR}/source/core/arch/Cpu.h")
+    if(NOT EXISTS "${PATCH_FILE}")
+        file(WRITE "${PATCH_FILE}" "#pragma once\n#include \"core/arch/CpuRegister.h\"\n")
+        message(STATUS "[PATCH] Created Cpu.h stub")
+    endif()
+
+    # Fix 3: os_arch_features.h - circular include, replace OSMemory with POSIX calls
+    set(PATCH_FILE "${DOBBY_SOURCE_DIR}/common/os_arch_features.h")
+    if(EXISTS "${PATCH_FILE}")
+        file(READ "${PATCH_FILE}" patch_content)
+        string(REPLACE "#include \"PlatformUnifiedInterface/platform.h\"" "#include <sys/mman.h>\n#include <unistd.h>" patch_content "${patch_content}")
+        string(REPLACE "  auto page = (void *)ALIGN_FLOOR(address, OSMemory::PageSize());\n  if (!OSMemory::SetPermission(page, OSMemory::PageSize(), kReadExecute)) {\n    return;\n  }" "  long page_size = sysconf(_SC_PAGESIZE);\n  auto page = (void *)ALIGN_FLOOR(address, page_size);\n  mprotect(page, page_size, PROT_READ | PROT_EXEC);" patch_content "${patch_content}")
+        file(WRITE "${PATCH_FILE}" "${patch_content}")
+        message(STATUS "[PATCH] os_arch_features.h: fixed circular include + OSMemory")
+    endif()
+
+    # Fix 4: closure_bridge_arm64.asm - ADRP/PAGE not supported with LLVM
+    set(PATCH_FILE "${DOBBY_SOURCE_DIR}/source/TrampolineBridge/ClosureTrampolineBridge/arm64/closure_bridge_arm64.asm")
+    if(EXISTS "${PATCH_FILE}")
+        file(READ "${PATCH_FILE}" patch_content)
+        string(REPLACE "adrp TMP_REG_0, cdecl(common_closure_bridge_handler)@PAGE\nadd TMP_REG_0, TMP_REG_0, cdecl(common_closure_bridge_handler)@PAGEOFF" "ldr TMP_REG_0, common_closure_bridge_handler_addr" patch_content "${patch_content}")
+        file(WRITE "${PATCH_FILE}" "${patch_content}")
+        message(STATUS "[PATCH] closure_bridge_arm64.asm: replaced ADRP with LDR")
+    endif()
+
+    # Fix 5: Linux ProcessRuntime.cc - load_address -> base, start -> start()
+    set(PATCH_FILE "${DOBBY_SOURCE_DIR}/source/Backend/UserMode/PlatformUtil/Linux/ProcessRuntime.cc")
+    if(EXISTS "${PATCH_FILE}")
+        file(READ "${PATCH_FILE}" patch_content)
+        string(REPLACE "module.load_address" "module.base" patch_content "${patch_content}")
+        string(REPLACE "a.start < b.start" "a.start() < b.start()" patch_content "${patch_content}")
+        if(NOT patch_content MATCHES "#include <inttypes.h>")
+            string(REPLACE "#include <sys/mman.h>" "#include <sys/mman.h>\n#include <inttypes.h>" patch_content "${patch_content}")
+        endif()
+        file(WRITE "${PATCH_FILE}" "${patch_content}")
+        message(STATUS "[PATCH] ProcessRuntime.cc: load_address -> base, added inttypes.h")
+    endif()
+
+    # Fix 6: dobby_symbol_resolver.cc - load_address -> base
+    set(PATCH_FILE "${DOBBY_SOURCE_DIR}/builtin-plugin/SymbolResolver/elf/dobby_symbol_resolver.cc")
+    if(EXISTS "${PATCH_FILE}")
+        file(READ "${PATCH_FILE}" patch_content)
+        string(REPLACE "module.load_address" "module.base" patch_content "${patch_content}")
+        file(WRITE "${PATCH_FILE}" "${patch_content}")
+        message(STATUS "[PATCH] dobby_symbol_resolver.cc: load_address -> base")
+    endif()
+
+    # Fix 7: code-patch-tool-posix.cc - missing ALIGN_FLOOR via linear_allocator.h
+    set(PATCH_FILE "${DOBBY_SOURCE_DIR}/source/Backend/UserMode/ExecMemory/code-patch-tool-posix.cc")
+    if(EXISTS "${PATCH_FILE}")
+        file(READ "${PATCH_FILE}" patch_content)
+        if(NOT patch_content MATCHES "linear_allocator.h")
+            string(REPLACE "#include <string.h>" "#include <string.h>\n#include \"common/linear_allocator.h\"" patch_content "${patch_content}")
+            file(WRITE "${PATCH_FILE}" "${patch_content}")
+            message(STATUS "[PATCH] code-patch-tool-posix.cc: added linear_allocator.h")
+        endif()
+    endif()
+
+    # Fix 8: Link with lowercase 'dobby' (newer Dobby uses lowercase targets)
+    set(DOBBY_TARGET "dobby")
+    set(DOBBY_STATIC_TARGET "dobby_static")
 endif()
 
 add_subdirectory(${DOBBY_SOURCE_DIR} dobby_build)
@@ -45,7 +121,7 @@ target_include_directories(cocos2djs_hook PRIVATE
 )
 
 target_link_libraries(cocos2djs_hook
-    Dobby
+    ${DOBBY_TARGET}
     log
     dl
 )
