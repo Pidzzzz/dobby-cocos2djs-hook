@@ -1,0 +1,17 @@
+build/
+*.o
+*.so
+*.a
+libs/
+obj/
+cmake-build-*/
+.dobby/
+__pycache__/
+*.pyc
+.vscode/
+.idea/
+*.iml
+*.apk
+*.keystore
+dumped_scripts/
+*.log

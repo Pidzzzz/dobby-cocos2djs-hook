@@ -1,0 +1,74 @@
+name: Build cocos2djs Dobby Hook
+
+on:
+  push:
+    branches: [ "main", "master" ]
+  pull_request:
+    branches: [ "main", "master" ]
+  workflow_dispatch:  # Manual trigger
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        arch: [arm64-v8a, armeabi-v7a]
+      fail-fast: false
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      with:
+        submodules: 'recursive'
+
+    - name: Setup Android NDK
+      id: setup-ndk
+      uses: nttld/setup-ndk@v1
+      with:
+        ndk-version: r27
+        add-to-path: false
+
+    - name: Build for ${{ matrix.arch }}
+      run: |
+        export ANDROID_NDK_HOME="${{ steps.setup-ndk.outputs.ndk-path }}"
+
+        mkdir -p build/${{ matrix.arch }}
+        cd build/${{ matrix.arch }}
+
+        cmake -DCMAKE_TOOLCHAIN_FILE="${ANDROID_NDK_HOME}/build/cmake/android.toolchain.cmake" \
+              -DANDROID_ABI=${{ matrix.arch }} \
+              -DANDROID_PLATFORM=android-21 \
+              -DCMAKE_BUILD_TYPE=Release \
+              ${{ github.workspace }}
+
+        make -j$(nproc)
+
+    - name: Upload artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: libcocos2djs_hook-${{ matrix.arch }}
+        path: build/${{ matrix.arch }}/libcocos2djs_hook.so
+        if-no-files-found: error
+
+  create-release:
+    if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master')
+    needs: build
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Download all artifacts
+      uses: actions/download-artifact@v4
+
+    - name: Prepare release files
+      run: |
+        mkdir -p release
+        cp libcocos2djs_hook-arm64-v8a/libcocos2djs_hook.so release/libcocos2djs_hook-arm64-v8a.so
+        cp libcocos2djs_hook-armeabi-v7a/libcocos2djs_hook.so release/libcocos2djs_hook-armeabi-v7a.so
+
+    - name: Create Release
+      uses: softprops/action-gh-release@v2
+      with:
+        tag_name: build-${{ github.run_number }}
+        name: "Build #${{ github.run_number }}"
+        files: release/*
+        generate_release_notes: true
