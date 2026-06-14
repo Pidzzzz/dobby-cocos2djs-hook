@@ -39,7 +39,7 @@ if(NOT EXISTS "${DOBBY_SOURCE_DIR}/include/dobby.h")
     endif()
 endif()
 
-add_subdirectory(${DOBBY_SOURCE_DIR} dobby_build)
+add_subdirectory(${DOBBY_SOURCE_DIR} dobby_build EXCLUDE_FROM_ALL)
 
 add_library(cocos2djs_hook SHARED jni/hook.cpp)
 
