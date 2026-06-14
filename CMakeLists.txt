@@ -52,3 +52,7 @@ target_link_libraries(cocos2djs_hook
     log
     dl
 )
+
+set_target_properties(cocos2djs_hook PROPERTIES
+    LINK_FLAGS "-Wl,--allow-multiple-definition"
+)
