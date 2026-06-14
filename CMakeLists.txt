@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.10)
 project(cocos2djs_hook CXX)
 
-set(CMAKE_CXX_STANDARD 11)
+set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 
@@ -41,18 +41,12 @@ endif()
 
 add_subdirectory(${DOBBY_SOURCE_DIR} dobby_build)
 
-# Fix duplicate symbols in old Dobby's Logger::Shared() with modern compilers
-if(TARGET dobby)
-    set_target_properties(dobby PROPERTIES LINK_FLAGS "-Wl,--allow-multiple-definition")
-endif()
-
 add_library(cocos2djs_hook SHARED jni/hook.cpp)
 
 target_include_directories(cocos2djs_hook PRIVATE
     ${DOBBY_SOURCE_DIR}/include
 )
 
-# Link against dobby_static to avoid shared lib issues
 target_link_libraries(cocos2djs_hook
     dobby_static
     log
